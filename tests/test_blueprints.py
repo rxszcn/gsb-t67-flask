@@ -330,6 +330,24 @@ def test_route_decorator_custom_endpoint_with_dots(app, client):
         bp.add_url_rule("/", view_func=view)
 
 
+def test_app_route_custom_endpoint_with_dots(app, client):
+    # A dot is the blueprint/endpoint separator, so app routes may not
+    # claim to belong to a blueprint they were never registered on.
+    with pytest.raises(ValueError):
+        app.route("/", endpoint="a.b")(lambda: "")
+
+    with pytest.raises(ValueError):
+        app.add_url_rule("/x", endpoint="a.b")
+
+    def view():
+        return ""
+
+    view.__name__ = "a.b"
+
+    with pytest.raises(ValueError):
+        app.add_url_rule("/y", view_func=view)
+
+
 def test_endpoint_decorator(app, client):
     from werkzeug.routing import Rule
 

@@ -30,6 +30,11 @@ Unreleased
     of only lower case file extensions. :pr:`6012`
 -   Fix parsing IPv6 with port in ``run`` and the test client. :pr:`6096`
 -   Add ``app.query`` route decorator for the HTTP QUERY method.
+-   ``Flask.add_url_rule`` raises a ``ValueError`` if the endpoint or view
+    function name contains a dot, matching ``Blueprint.add_url_rule``. The dot
+    separates the blueprint name from the endpoint, so an app route with a dot
+    could otherwise inherit a blueprint's request hooks and error handlers
+    without being registered on that blueprint.
 
 
 Version 3.1.3

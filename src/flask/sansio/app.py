@@ -610,6 +610,35 @@ class App(Scaffold):
         provide_automatic_options: bool | None = None,
         **options: t.Any,
     ) -> None:
+        """Register a rule for routing incoming requests and building
+        URLs. Like :meth:`~flask.Blueprint.add_url_rule`, the ``endpoint``
+        and ``view_func`` name may not contain a dot (``.``). Dots are used
+        to separate the blueprint name from the endpoint, so allowing them on
+        application routes would let the route claim hooks and error
+        handlers belonging to a blueprint it was never registered on.
+        """
+        if endpoint and "." in endpoint:
+            raise ValueError("'endpoint' may not contain a dot '.' character.")
+
+        if view_func and hasattr(view_func, "__name__") and "." in view_func.__name__:
+            raise ValueError("'view_func' name may not contain a dot '.' character.")
+
+        self._add_url_rule(
+            rule,
+            endpoint,
+            view_func,
+            provide_automatic_options=provide_automatic_options,
+            **options,
+        )
+
+    def _add_url_rule(
+        self,
+        rule: str,
+        endpoint: str | None = None,
+        view_func: ft.RouteCallable | None = None,
+        provide_automatic_options: bool | None = None,
+        **options: t.Any,
+    ) -> None:
         if endpoint is None:
             endpoint = _endpoint_from_view_func(view_func)  # type: ignore
         options["endpoint"] = endpoint

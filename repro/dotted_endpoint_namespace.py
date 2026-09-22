@@ -1,4 +1,6 @@
-from flask import Blueprint, Flask
+from werkzeug.exceptions import BadRequest
+
+from flask import Blueprint, Flask, url_for
 
 bp = Blueprint("api", __name__)
 ran = []
@@ -20,6 +22,16 @@ def _e400(e):
     return "handled-by-api-blueprint", 200
 
 
+@bp.route("/item")
+def item():
+    return "item"
+
+
+@bp.route("/boom")
+def boom():
+    raise BadRequest()
+
+
 app = Flask(__name__)
 app.register_blueprint(bp, url_prefix="/api")
 
@@ -32,18 +44,76 @@ try:
 except ValueError as exc:
     print("A1 蓝图带点 endpoint -> ValueError:", exc)
 
-# app 级不校验带点 endpoint，注册成 api.* 伪装成蓝图成员
-app.add_url_rule("/lookalike", "api.lookalike", lambda: "lookalike")
-app.add_url_rule("/boom", "api.boom", lambda: (_ for _ in ()).throw(__import__("werkzeug.exceptions").BadRequest()))
+# app 级现在同样拒绝带点 endpoint，冒名路由根本进不来
+try:
+    app.add_url_rule("/lookalike", "api.lookalike", lambda: "lookalike")
+    print("A2 app 带点 endpoint -> 照收（不对）")
+except ValueError as exc:
+    print("A2 app 带点 endpoint -> ValueError:", exc)
+
+
+@app.route("/plain")
+def plain():
+    return "plain"
+
+
+@app.route("/app-boom")
+def app_boom():
+    raise BadRequest()
+
 
 c = app.test_client()
-ran.clear()
-r = c.get("/lookalike")
-print("A2 app 带点 endpoint -> 照收不校验；GET /lookalike", r.status_code, "触发 api 蓝图钩子:", ran)
-ran.clear()
-r = c.get("/boom")
-print("GET /boom（400）", r.status_code, "body=", r.get_data(as_text=True), "（本应默认 400 页，却由 api 蓝图 errorhandler 接管）", "钩子:", ran)
 
-with app.test_request_context("/lookalike"):
+ran.clear()
+r = c.get("/plain")
+print(
+    "B1 GET /plain",
+    r.status_code,
+    "触发 api 蓝图钩子（应为空）:",
+    ran,
+)
+
+ran.clear()
+r = c.get("/app-boom")
+print(
+    "B2 GET /app-boom（400）",
+    r.status_code,
+    "（默认 400 页，不被 api 蓝图 errorhandler 接管）",
+    "钩子（应为空）:",
+    ran,
+)
+
+ran.clear()
+r = c.get("/api/item")
+with app.test_request_context():
+    item_url = url_for("api.item")
+print(
+    "C1 GET /api/item",
+    r.status_code,
+    "触发 api 蓝图钩子（应为 before+after）:",
+    ran,
+    "url_for:",
+    item_url,
+)
+
+ran.clear()
+r = c.get("/api/boom")
+print(
+    "C2 GET /api/boom（400）",
+    r.status_code,
+    "body=",
+    r.get_data(as_text=True),
+    "（由 api 蓝图 errorhandler 接管）",
+    "钩子:",
+    ran,
+)
+
+with app.test_request_context("/plain"):
     from flask import request
-    print("request.blueprint 冒出假名:", request.blueprint, "（该 endpoint 并未真属 api 蓝图）")
+
+    print("D1 request.blueprint（应为 None）:", request.blueprint)
+
+with app.test_request_context("/api/item"):
+    from flask import request
+
+    print("D2 request.blueprint（应为 api）:", request.blueprint)
